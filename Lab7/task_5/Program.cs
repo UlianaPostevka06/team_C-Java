@@ -1,9 +1,9 @@
 ﻿
+using System;
+
 namespace Variant6_DocumentApprovalWorkflow
 {
-    // Опис предметної області: Корпоративна система електронного документообігу та узгодження.
-    // Завдання коду: Узгодження документа керівником, перевірка прав підписанта через Active Directory, оновлення пошукового індексу Elasticsearch та надсилання сповіщення у робочий чат Slack.
-
+    // Сутність документа
     public class Document
     {
         public string DocumentId { get; set; }
@@ -12,59 +12,192 @@ namespace Variant6_DocumentApprovalWorkflow
         public string ApproverUsername { get; set; }
     }
 
-    public class ElasticsearchDocumentIndex
+    // 1. АБСТРАКЦІЇ (ІНТЕРФЕЙСИ)
+
+    public interface IDocumentIndex
+    {
+        void IndexDocument(string docId, string title, string status);
+    }
+
+    public interface IUserValidator
+    {
+        bool ValidateUserSignature(string username);
+    }
+
+    public interface INotificationService
+    {
+        void PostChannelMessage(string channel, string message);
+    }
+
+    // 2. КОНКРЕТНІ РЕАЛІЗАЦІЇ СЕРВІСІВ
+
+    // Індексування через Elasticsearch
+    public class ElasticsearchDocumentIndex : IDocumentIndex
     {
         public void IndexDocument(string docId, string title, string status)
         {
-            Console.WriteLine($"[Elasticsearch Index] Документ {docId} ('{title}') перевиндексовано зі статусом '{status}'.");
+            Console.WriteLine(
+                $"[Elasticsearch Index] Документ {docId} ('{title}') " +
+                $"перевиндексовано зі статусом '{status}'.");
         }
     }
 
-    public class ActiveDirectoryUserValidator
+    // Перевірка користувача через Active Directory
+    public class ActiveDirectoryUserValidator : IUserValidator
     {
         public bool ValidateUserSignature(string username)
         {
-            Console.WriteLine($"[Active Directory LDAP] Користувача '{username}' підтверджено у групі 'Managers'.");
+            Console.WriteLine(
+                $"[Active Directory LDAP] Користувача '{username}' " +
+                "підтверджено у групі 'Managers'.");
+
             return true;
         }
     }
 
-    public class SlackWebhookNotifier
+    // Надсилання повідомлення через Slack
+    public class SlackWebhookNotifier : INotificationService
     {
         public void PostChannelMessage(string channel, string message)
         {
-            Console.WriteLine($"[Slack Webhook] Повідомлення у канал #{channel}: {message}");
+            Console.WriteLine(
+                $"[Slack Webhook] Повідомлення у канал #{channel}: {message}");
         }
     }
 
+    // 3. ТЕСТОВІ РЕАЛІЗАЦІЇ ДЛЯ ДЕМОНСТРАЦІЇ DIP
+
+    public class MockDocumentIndex : IDocumentIndex
+    {
+        public void IndexDocument(string docId, string title, string status)
+        {
+            Console.WriteLine(
+                $"[Mock Index] Документ {docId} отримав статус '{status}'.");
+        }
+    }
+
+    public class MockUserValidator : IUserValidator
+    {
+        public bool ValidateUserSignature(string username)
+        {
+            Console.WriteLine(
+                $"[Mock Validator] Користувача '{username}' перевірено.");
+
+            return true;
+        }
+    }
+
+    public class MockNotificationService : INotificationService
+    {
+        public void PostChannelMessage(string channel, string message)
+        {
+            Console.WriteLine(
+                $"[Mock Notification] Канал #{channel}: {message}");
+        }
+    }
+
+    // 4. ВИСОКОРІВНЕВИЙ КЛАС БІЗНЕС-ЛОГІКИ
+
     public class DocumentApprovalWorkflow
     {
-        private readonly ElasticsearchDocumentIndex _searchIndex;
-        private readonly ActiveDirectoryUserValidator _adValidator;
-        private readonly SlackWebhookNotifier _slackNotifier;
+        private readonly IDocumentIndex _searchIndex;
+        private readonly IUserValidator _adValidator;
+        private readonly INotificationService _slackNotifier;
 
-        public DocumentApprovalWorkflow()
+        // Constructor Injection — залежності передаються через конструктор
+        public DocumentApprovalWorkflow(
+            IDocumentIndex searchIndex,
+            IUserValidator adValidator,
+            INotificationService slackNotifier)
         {
-            _searchIndex = new ElasticsearchDocumentIndex();
-            _adValidator = new ActiveDirectoryUserValidator();
-            _slackNotifier = new SlackWebhookNotifier();
+            _searchIndex = searchIndex
+                ?? throw new ArgumentNullException(nameof(searchIndex));
+
+            _adValidator = adValidator
+                ?? throw new ArgumentNullException(nameof(adValidator));
+
+            _slackNotifier = slackNotifier
+                ?? throw new ArgumentNullException(nameof(slackNotifier));
         }
 
         public void ApproveDocument(Document doc)
         {
-            if (doc == null || string.IsNullOrEmpty(doc.DocumentId))
+            if (doc == null || string.IsNullOrWhiteSpace(doc.DocumentId))
             {
-                throw new ArgumentException("Некоректний документ для узгодження.");
+                throw new ArgumentException(
+                    "Некоректний документ для узгодження.");
             }
 
-            bool isValidApprover = _adValidator.ValidateUserSignature(doc.ApproverUsername);
+            bool isValidApprover =
+                _adValidator.ValidateUserSignature(doc.ApproverUsername);
+
             if (!isValidApprover)
             {
-                throw new InvalidOperationException("Підписант не має повноважень для підпису.");
+                throw new InvalidOperationException(
+                    "Підписант не має повноважень для підпису.");
             }
 
-            _searchIndex.IndexDocument(doc.DocumentId, doc.Title, "APPROVED");
-            _slackNotifier.PostChannelMessage("approvals", $"Документ '{doc.Title}' (ID: {doc.DocumentId}) успішно підписано користувачем {doc.ApproverUsername}.");
+            _searchIndex.IndexDocument(
+                doc.DocumentId, doc.Title, "APPROVED");
+
+            _slackNotifier.PostChannelMessage(
+                "approvals",
+                $"Документ '{doc.Title}' (ID: {doc.DocumentId}) " +
+                $"успішно підписано користувачем {doc.ApproverUsername}.");
+        }
+    }
+
+    // 5. COMPOSITION ROOT — ТОЧКА ЗБІРКИ ЗАЛЕЖНОСТЕЙ
+
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            Document document = new Document
+            {
+                DocumentId = "DOC-001",
+                Title = "Договір про співпрацю",
+                AuthorUsername = "ivan.petrenko",
+                ApproverUsername = "manager.smith"
+            };
+
+            Console.WriteLine("Production-режим");
+
+            // Створюємо реальні реалізації сервісів
+            IDocumentIndex productionIndex =
+                new ElasticsearchDocumentIndex();
+
+            IUserValidator productionValidator =
+                new ActiveDirectoryUserValidator();
+
+            INotificationService productionNotifier =
+                new SlackWebhookNotifier();
+
+            // Передаємо залежності у бізнес-логіку
+            DocumentApprovalWorkflow productionWorkflow =
+                new DocumentApprovalWorkflow(
+                    productionIndex,
+                    productionValidator,
+                    productionNotifier);
+
+            productionWorkflow.ApproveDocument(document);
+
+            Console.WriteLine();
+            Console.WriteLine("Test-режим");
+
+            // Замінюємо реальні сервіси тестовими
+            IDocumentIndex mockIndex = new MockDocumentIndex();
+            IUserValidator mockValidator = new MockUserValidator();
+            INotificationService mockNotifier =
+                new MockNotificationService();
+
+            DocumentApprovalWorkflow testWorkflow =
+                new DocumentApprovalWorkflow(
+                    mockIndex,
+                    mockValidator,
+                    mockNotifier);
+
+            testWorkflow.ApproveDocument(document);
         }
     }
 }

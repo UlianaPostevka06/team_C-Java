@@ -1,67 +1,190 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Variant6_VehicleFleet
 {
     // Опис предметної області: Автоматизована система управління транспортним парком.
     // Завдання коду: Заправка, технічний огляд, вимірювання залишку палива та пробігу транспортних засобів.
-    // 
 
-    public class Vehicle
+    //  Незмінний Value Object: ємність + поточний рівень (літри палива або кВт·год заряду) 
+    // Інваріант: 0 <= Level <= Capacity. Створити некоректний стан неможливо (fail-fast).
+
+    public sealed record Reservoir
     {
-        public string LicensePlate { get; set; }
-        public double FuelLevelLiters { get; protected set; }
-        public double TankCapacityLiters { get; set; }
+        public double Capacity { get; }
+        public double Level { get; }
+        public double FreeSpace => Capacity - Level;
 
-        public Vehicle(string licensePlate, double fuelLevelLiters, double tankCapacityLiters)
+        public Reservoir(double capacity, double level)
         {
-            LicensePlate = licensePlate;
-            FuelLevelLiters = fuelLevelLiters;
-            TankCapacityLiters = tankCapacityLiters;
+            if (capacity <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity must be positive.");
+            }
+
+            if (level < 0 || level > capacity)
+            {
+                throw new ArgumentOutOfRangeException(nameof(level), "Level must be between 0 and capacity.");
+            }
+
+            Capacity = capacity;
+            Level = level;
         }
 
-        public virtual void Refuel(double liters)
+        public Reservoir Add(double amount)
         {
-            if (liters <= 0) throw new ArgumentException("Liters must be positive");
-            if (FuelLevelLiters + liters > TankCapacityLiters) throw new InvalidOperationException("Tank overflow!");
-            FuelLevelLiters += liters;
+            if (amount <= 0) throw new ArgumentException("Amount must be positive.", nameof(amount));
+            if (amount > FreeSpace) throw new InvalidOperationException("Capacity exceeded!");
+
+            return new Reservoir(Capacity, Math.Min(Capacity, Level + amount));
+        }
+
+        public Reservoir Remove(double amount)
+        {
+            if (amount <= 0) throw new ArgumentException("Amount must be positive.", nameof(amount));
+            if (amount > Level) throw new InvalidOperationException("Not enough energy!");
+
+            return new Reservoir(Capacity, Math.Max(0, Level - amount));
+        }
+    }
+
+    // Базовий тип: лише те, що вміє КОЖЕН транспортний засіб
+
+    public abstract class Vehicle
+    {
+        public string LicensePlate { get; }
+
+        protected Vehicle(string licensePlate)
+        {
+            if (string.IsNullOrWhiteSpace(licensePlate))
+            {
+                throw new ArgumentException("License plate is required.", nameof(licensePlate));
+            }
+
+            LicensePlate = licensePlate;
+        }
+
+        public abstract void Drive(double distanceKm);
+
+        protected static void EnsurePositiveDistance(double distanceKm)
+        {
+            if (distanceKm <= 0) throw new ArgumentException("Distance must be positive.", nameof(distanceKm));
+        }
+    }
+
+    // Паливні ТЗ: мають бак і вміють заправлятися
+
+    public class FuelVehicle : Vehicle
+    {
+        private const double ConsumptionLitersPerKm = 0.08; // 8 л/100 км
+
+        private Reservoir _tank;
+
+        public double FuelLevelLiters => _tank.Level;
+        public double TankCapacityLiters => _tank.Capacity;
+
+        public FuelVehicle(string licensePlate, double fuelLevelLiters, double tankCapacityLiters)
+            : base(licensePlate)
+        {
+            _tank = new Reservoir(tankCapacityLiters, fuelLevelLiters);
+        }
+
+        public void Refuel(double liters)
+        {
+            _tank = _tank.Add(liters);
             Console.WriteLine($"Vehicle {LicensePlate} refueled with {liters} L. Current level: {FuelLevelLiters} L");
         }
 
-        public virtual void Drive(double distanceKm)
+        public override void Drive(double distanceKm)
         {
-            double fuelConsumed = distanceKm * 0.08; // 8L/100km
-            if (fuelConsumed > FuelLevelLiters) throw new InvalidOperationException("Not enough fuel to drive!");
-            FuelLevelLiters -= fuelConsumed;
+            EnsurePositiveDistance(distanceKm);
+            _tank = _tank.Remove(distanceKm * ConsumptionLitersPerKm);
             Console.WriteLine($"Vehicle {LicensePlate} drove {distanceKm} km. Remaining fuel: {FuelLevelLiters} L");
         }
     }
 
+    // Електромобілі: мають батарею, а не бак. Не успадковують Refuel
+
     public class ElectricVehicle : Vehicle
     {
-        public double BatteryLevelKWh { get; private set; }
+        private const double ConsumptionKWhPerKm = 0.15; // 15 кВт·год/100 км
 
-        public ElectricVehicle(string licensePlate, double batteryLevelKWh)
-            : base(licensePlate, 0, 0) // Не має паливного бака
+        private Reservoir _battery;
+
+        public double BatteryLevelKWh => _battery.Level;
+
+        public ElectricVehicle(string licensePlate, double batteryLevelKWh, double batteryCapacityKWh)
+            : base(licensePlate)
         {
-            BatteryLevelKWh = batteryLevelKWh;
+            _battery = new Reservoir(batteryCapacityKWh, batteryLevelKWh);
         }
 
-        public override void Refuel(double liters)
+        public void ChargeBattery(double kWh)
         {
-            // Порушення LSP: Електромобіль не можна заправити бензином/дизелем
-            throw new NotSupportedException("Electric vehicles cannot be refueled with liquid fuel! Use ChargeBattery instead.");
+            _battery = _battery.Add(kWh);
+            Console.WriteLine($"Vehicle {LicensePlate} charged with {kWh} kWh. Current level: {BatteryLevelKWh} kWh");
+        }
+
+        public override void Drive(double distanceKm)
+        {
+            EnsurePositiveDistance(distanceKm);
+            _battery = _battery.Remove(distanceKm * ConsumptionKWhPerKm);
+            Console.WriteLine($"Vehicle {LicensePlate} drove {distanceKm} km. Remaining charge: {BatteryLevelKWh} kWh");
         }
     }
 
+    // Клієнт: приймає лише ті типи, які справді можна заправити
+
     public class GasStationManager
     {
-        public void RefuelVehicleToFull(Vehicle vehicle)
+        public void RefuelVehicleToFull(FuelVehicle vehicle)
         {
-            // Заправна станція розраховує на підтримку рідкого палива у будь-якого Vehicle
+            ArgumentNullException.ThrowIfNull(vehicle);
+
             double needed = vehicle.TankCapacityLiters - vehicle.FuelLevelLiters;
             if (needed > 0)
             {
                 vehicle.Refuel(needed);
+            }
+        }
+    }
+    public class Program
+    {
+        public static void Main()
+        {
+            var fleet = new List<Vehicle>
+            {
+                new FuelVehicle("AA1234BB", fuelLevelLiters: 10, tankCapacityLiters: 50),
+                new ElectricVehicle("BC5678CD", batteryLevelKWh: 40, batteryCapacityKWh: 60)
+            };
+
+            // LSP: будь-який Vehicle можна підставити там, де потрібен Vehicle
+            foreach (Vehicle vehicle in fleet)
+            {
+                vehicle.Drive(100);
+            }
+
+            // Заправляємо лише паливні, заряджаємо лише електричні
+            var station = new GasStationManager();
+            foreach (FuelVehicle fuelVehicle in fleet.OfType<FuelVehicle>())
+            {
+                station.RefuelVehicleToFull(fuelVehicle);
+            }
+
+            foreach (ElectricVehicle ev in fleet.OfType<ElectricVehicle>())
+            {
+                ev.ChargeBattery(35);
+            }
+
+            // Fail-fast: некоректний стан неможливо створити
+            try
+            {
+                var broken = new FuelVehicle("XX0000XX", fuelLevelLiters: 100, tankCapacityLiters: 50);
+            }
+            catch (ArgumentException ex)
+            {
+                Console.WriteLine($"Помилка створення: {ex.Message}");
             }
         }
     }

@@ -1,4 +1,3 @@
-package variant6_ecommercepaymentterminal;
 
 import java.math.BigDecimal;
 
@@ -31,5 +30,29 @@ public class ECommercePaymentTerminal {
 
         @Override public void processBankTransfer(BigDecimal amount, String iban) { throw new UnsupportedOperationException("POS terminal does not process wire transfers."); }
         @Override public void processGiftCard(BigDecimal amount, String voucherCode) { throw new UnsupportedOperationException("Vouchers not processed by POS card reader."); }
+    }
+
+    public static void main(String[] args) {
+        IPaymentTerminal web = new OnlineWebCheckoutTerminal();
+        IPaymentTerminal pos = new PosCardReader();
+
+        web.processCreditCard(
+                new BigDecimal("150.00"),
+                "TEST_CARD"
+        );
+
+        web.processBankTransfer(
+                new BigDecimal("500.00"),
+                "TEST_IBAN"
+        );
+
+        pos.processCreditCard(
+                new BigDecimal("200.00"),
+                "TEST_CARD"
+        );
+
+        pos.processNfcTap(new BigDecimal("250.00"));
+
+        pos.printPaperReceipt("Purchase #101");
     }
 }

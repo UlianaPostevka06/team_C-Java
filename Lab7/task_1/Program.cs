@@ -1,97 +1,190 @@
-<![CDATA[ 
-    using System;
-    using System.IO;
-    using System.Net.Mail;
+﻿using System;
+using System.IO;
+using System.Net.Mail;
 
-    namespace Variant6_LibraryLoanManager
+namespace Variant6_LibraryLoanManager
+{
+    // Доменна модель
+    public class BookReturnModel
     {
-        // Опис предметної області: Автоматизована система міської бібліотеки.
-        // Завдання коду: Обробка повернення та видачі книг — перевірка читацького квитка, розрахунок пені за прострочення та накопичувальних балів читача, формування нагадування або чека штрафу, оновлення статусу книги в каталозі та надсилання сповіщення боржнику електронною поштою.
+        public string ReaderTicketNumber { get; set; } = string.Empty;
+        public string ReaderName { get; set; } = string.Empty;
+        public string ReaderEmail { get; set; } = string.Empty;
+        public string BookIsbn { get; set; } = string.Empty;
+        public string BookTitle { get; set; } = string.Empty;
+        public DateTime ExpectedReturnDate { get; set; }
+        public DateTime ActualReturnDate { get; set; }
+    }
 
-        public class BookReturnModel
-        {
-            public string ReaderTicketNumber { get; set; }
-            public string ReaderName { get; set; }
-            public string ReaderEmail { get; set; }
-            public string BookIsbn { get; set; }
-            public string BookTitle { get; set; }
-            public DateTime ExpectedReturnDate { get; set; }
-            public DateTime ActualReturnDate { get; set; }
-        }
+    // Результат розрахунку: що саме нарахувала бібліотека за повернення
+    public record ReturnAssessment(int OverdueDays, decimal FineAmount, int LoyaltyPoints)
+    {
+        public bool IsOverdue => OverdueDays > 0;
+    }
 
-        public class LibraryLoanService
+    // Валідація (причина для зміни: правила перевірки даних) 
+    public class LoanValidator
+    {
+        public void Validate(BookReturnModel loan)
         {
-            public void ProcessBookReturn(BookReturnModel loan)
+            if (string.IsNullOrWhiteSpace(loan.ReaderTicketNumber))
             {
-                // 1. Перевірка даних читацького квитка та видачі
-                if (string.IsNullOrWhiteSpace(loan.ReaderTicketNumber))
-                {
-                    throw new ArgumentException("Номер читацького квитка відсутній.");
-                }
+                throw new ArgumentException("Номер читацького квитка відсутній.");
+            }
 
-                if (string.IsNullOrWhiteSpace(loan.BookIsbn))
-                {
-                    throw new ArgumentException("Код ISBN книги обов'язковий.");
-                }
+            if (string.IsNullOrWhiteSpace(loan.BookIsbn))
+            {
+                throw new ArgumentException("Код ISBN книги обов'язковий.");
+            }
 
-                if (loan.ActualReturnDate < loan.ExpectedReturnDate.AddYears(-1))
-                {
-                    throw new InvalidOperationException("Неможлива дата повернення книги.");
-                }
-
-                // 2. Розрахунок прострочення, штрафних санкцій та бонусних балів
-                int overdueDays = (loan.ActualReturnDate - loan.ExpectedReturnDate).Days;
-                decimal fineAmount = 0;
-                int loyaltyPointsEarned = 0;
-
-                if (overdueDays > 0)
-                {
-                    // Тариф штрафу: 15 грн за кожен день прострочення
-                    fineAmount = overdueDays * 15.00m;
-                }
-                else
-                {
-                    // Бонус за вчасне повернення
-                    loyaltyPointsEarned = 10;
-                }
-
-                // 3. Генерація чека / офіційного повідомлення бібліотеки
-                string noticeText = "БІБЛІОТЕЧНИЙ АКТ ПОВЕРНЕННЯ КНИГИ\n";
-                noticeText += $"Читач: {loan.ReaderName} (Квиток №{loan.ReaderTicketNumber})\n";
-                noticeText += $"Книга: "{loan.BookTitle}" (ISBN: {loan.BookIsbn})\n";
-                noticeText += $"Планова дата: {loan.ExpectedReturnDate:dd.MM.yyyy} | Фактична: {loan.ActualReturnDate:dd.MM.yyyy}\n";
-
-                if (overdueDays > 0)
-                {
-                    noticeText += $"УВАГА! Прострочення: {overdueDays} днів. Штраф до сплати: {fineAmount:F2} грн.\n";
-                }
-                else
-                {
-                    noticeText += $"Дякуємо за вчасне повернення! Нараховано бонусних балів: {loyaltyPointsEarned}\n";
-                }
-
-                // 4. Оновлення електронного каталогу (запис у файлову БД)
-                string catalogRecord = $"{loan.BookIsbn}|RETURNED|{loan.ActualReturnDate:yyyy-MM-dd}|By_{loan.ReaderTicketNumber}\n";
-                File.AppendAllText("library_catalog_history.txt", catalogRecord);
-
-                // 5. Відправка квитанції читачеві
-                try
-                {
-                    using (var mailClient = new SmtpClient("smtp.citylibrary.local"))
-                    {
-                        var mail = new MailMessage("loans@citylibrary.local", loan.ReaderEmail)
-                        {
-                            Subject = overdueDays > 0 ? "Повідомлення про штраф за прострочення книги" : "Підтвердження повернення книги",
-                            Body = noticeText
-                        };
-                        mailClient.Send(mail);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Не вдалося відправити квитанцію на пошту: {ex.Message}");
-                }
+            if (loan.ActualReturnDate < loan.ExpectedReturnDate.AddYears(-1))
+            {
+                throw new InvalidOperationException("Неможлива дата повернення книги.");
             }
         }
     }
-     ]]>
+
+    // Бізнес-логіка (причина для зміни: тарифи та бонуси) 
+    public class FineCalculator
+    {
+        private const decimal FinePerDay = 15.00m;   // грн за кожен день прострочення
+        private const int OnTimeBonusPoints = 10;    // бонус за вчасне повернення
+
+        public ReturnAssessment Calculate(BookReturnModel loan)
+        {
+            int overdueDays = (loan.ActualReturnDate - loan.ExpectedReturnDate).Days;
+
+            return overdueDays > 0
+                ? new ReturnAssessment(overdueDays, overdueDays * FinePerDay, 0)
+                : new ReturnAssessment(overdueDays, 0, OnTimeBonusPoints);
+        }
+    }
+
+    // Форматування (причина для зміни: вигляд і текст повідомлення)
+
+    public class NoticeFormatter
+    {
+        public string Format(BookReturnModel loan, ReturnAssessment assessment)
+        {
+            string notice = "БІБЛІОТЕЧНИЙ АКТ ПОВЕРНЕННЯ КНИГИ\n";
+            notice += $"Читач: {loan.ReaderName} (Квиток №{loan.ReaderTicketNumber})\n";
+            notice += $"Книга: «{loan.BookTitle}» (ISBN: {loan.BookIsbn})\n";
+            notice += $"Планова дата: {loan.ExpectedReturnDate:dd.MM.yyyy} | Фактична: {loan.ActualReturnDate:dd.MM.yyyy}\n";
+
+            notice += assessment.IsOverdue
+                ? $"УВАГА! Прострочення: {assessment.OverdueDays} днів. Штраф до сплати: {assessment.FineAmount:F2} грн.\n"
+                : $"Дякуємо за вчасне повернення! Нараховано бонусних балів: {assessment.LoyaltyPoints}\n";
+
+            return notice;
+        }
+    }
+
+    // Збереження (причина для зміни: формат і місце зберігання каталогу)
+    public class CatalogRepository
+    {
+        private const string FileName = "library_catalog_history.txt";
+
+        public void SaveReturn(BookReturnModel loan)
+        {
+            string record = $"{loan.BookIsbn}|RETURNED|{loan.ActualReturnDate:yyyy-MM-dd}|By_{loan.ReaderTicketNumber}\n";
+            File.AppendAllText(FileName, record);
+        }
+    }
+
+    // Сповіщення (причина для зміни: канал і параметри доставки) 
+    public class EmailNotifier
+    {
+        public void Send(BookReturnModel loan, ReturnAssessment assessment, string noticeText)
+        {
+            try
+            {
+                using (var mailClient = new SmtpClient("smtp.citylibrary.local"))
+                {
+                    var mail = new MailMessage("loans@citylibrary.local", loan.ReaderEmail)
+                    {
+                        Subject = assessment.IsOverdue
+                            ? "Повідомлення про штраф за прострочення книги"
+                            : "Підтвердження повернення книги",
+                        Body = noticeText
+                    };
+                    mailClient.Send(mail);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Не вдалося відправити квитанцію на пошту: {ex.Message}");
+            }
+        }
+    }
+
+    // Оркестратор: лише координує кроки, сам нічого не рахує 
+
+    public class LibraryLoanService
+    {
+        private readonly LoanValidator _validator;
+        private readonly FineCalculator _calculator;
+        private readonly NoticeFormatter _formatter;
+        private readonly CatalogRepository _repository;
+        private readonly EmailNotifier _notifier;
+
+        public LibraryLoanService(
+            LoanValidator validator,
+            FineCalculator calculator,
+            NoticeFormatter formatter,
+            CatalogRepository repository,
+            EmailNotifier notifier)
+        {
+            _validator = validator;
+            _calculator = calculator;
+            _formatter = formatter;
+            _repository = repository;
+            _notifier = notifier;
+        }
+
+        public void ProcessBookReturn(BookReturnModel loan)
+        {
+            _validator.Validate(loan);
+
+            ReturnAssessment assessment = _calculator.Calculate(loan);
+            string notice = _formatter.Format(loan, assessment);
+            Console.WriteLine(notice);
+
+            _repository.SaveReturn(loan);
+            _notifier.Send(loan, assessment, notice);
+        }
+    }
+
+
+    public class Program
+    {
+        public static void Main()
+        {
+            var service = new LibraryLoanService(
+                new LoanValidator(),
+                new FineCalculator(),
+                new NoticeFormatter(),
+                new CatalogRepository(),
+                new EmailNotifier());
+
+            var loan = new BookReturnModel
+            {
+                ReaderTicketNumber = "12345",
+                ReaderName = "Іван Петренко",
+                ReaderEmail = "ivan@example.com",
+                BookIsbn = "978-966-03-1234-5",
+                BookTitle = "Кобзар",
+                ExpectedReturnDate = new DateTime(2026, 10, 10),
+                ActualReturnDate = new DateTime(2026, 10, 15)
+            };
+
+            try
+            {
+                service.ProcessBookReturn(loan);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Помилка: {ex.Message}");
+            }
+        }
+    }
+}

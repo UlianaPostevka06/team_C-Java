@@ -101,13 +101,13 @@ return overdueDays > 0
 
 | Клас | WMC | CBO | LCOM |
 |---|---|---|---|
-| `LibraryLoanService` (до) | ≈ 8 | ≈ 7–8 | формально не інформативний (немає полів), логічно низька зв'язність |
+| `LibraryLoanService` (до) | ≈ 7 | ≈ 7 | формально не інформативний (немає полів), логічно низька зв'язність |
 | `LoanValidator` | 4 | 3 | 0 (без стану) |
 | `FineCalculator` | 2 | 2 | 0 (обидві константи використовує єдиний метод) |
 | `NoticeFormatter` | 2 | 2 | 0 (без стану) |
 | `CatalogRepository` | 1 | 2 | 0 |
 | `EmailNotifier` | 3 | 5 | 0 (без стану) |
-| `LibraryLoanService` (після) | 1 | 8 | 0 (усі 5 полів використовує метод `ProcessBookReturn`) |
+| `LibraryLoanService` (після) | 1 | 7 | 0 (усі 5 полів використовує метод `ProcessBookReturn`) |
 
 **Висновки за метриками:**
 

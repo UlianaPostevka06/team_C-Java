@@ -4,11 +4,6 @@
 
 Прийнято (Accepted)
 
-## Контекст
-
-Вихідний код (`Variant6_RestaurantBooking`) складається з анемічних класів `Guest`, `MenuItem`, `OrderLine`, `TableReservation` та монолітного методу `LegacyRestaurantProcessor.ProcessReservationConsole()`. Початковий стан зафіксовано в Git окремим комітом перед рефакторингом.
-
-Метрики до рефакторингу: `CBO(LegacyRestaurantProcessor) = 4` (`Guest`, `TableReservation`, `MenuItem`, `OrderLine`); `LCOM4 = 1` (єдиний метод). Показники формально в нормі лише тому, що весь код зібраний в одному методі з багатьма обов'язками, тож самі по собі вони якості дизайну не доводять.
 
 ## Виявлені проблеми
 
@@ -84,6 +79,8 @@
 - `PricingPolicySet` та `TextReceiptFormatter` мають LCOM4 = 3, а кілька координаційних класів (`CreateReservationStep`, `NotifyGuestStep`, `ConsoleUi`) перевищують CBO = 4. Для цих технічних класів норматив методички не обов'язковий, деталі в розрахунках Завдання 5.
 
 ## Завдання 5. Порівняльна таблиця метрик
+LCOM4 вимірює внутрішній зв'язок усередині класу
+CBO — зовнішню залежність класу від інших
 
 | Клас | CBO до | CBO після | LCOM4 до | LCOM4 після |
 |---|---|---|---|---|

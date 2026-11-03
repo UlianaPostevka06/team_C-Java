@@ -2,13 +2,7 @@
 using System.Text;
 
 namespace Lab10.Task2;
-
-// ФАЙЛ 2: усе для завдання 2 (Abstract Factory) + власний Main.
-// Запуск: dotnet run
-
-// ---------------------------------------------------------------------
 // Журнал: усі події у форматі [час] [джерело] подія
-// ---------------------------------------------------------------------
 public static class Logger
 {
     public static void Log(string source, string message)
@@ -17,31 +11,28 @@ public static class Logger
     }
 }
 
-// =====================================================================
 //  ЗАВДАННЯ 2. ABSTRACT FACTORY — стартове спорядження фракцій
-// =====================================================================
+//як розпізнати шаблон за описом:
+//«Потрібен НАБІР пов'язаних предметів, які працюють лише РАЗОМ
+//(однієї фракції), і змішувати їх не можна» -> Abstract Factory.
+// Було: кожен предмет вибирався окремо, і ельф отримав гномівську броню.
+// Стало: фабрика фракції видає ВЕСЬ набір одразу. Брати зброю з
+// однієї фабрики, а броню з іншої код видачі просто не буде, бо працює
+// з однією фабрикою за раз.
 //
-//  ШПОРА (як розпізнати шаблон за описом):
-//   • «Потрібен НАБІР пов'язаних предметів, які працюють лише РАЗОМ
-//     (однієї фракції), і змішувати їх не можна» -> Abstract Factory.
-//   • Було: кожен предмет вибирався окремо, і ельф отримав гномівську броню.
-//   • Стало: фабрика фракції видає ВЕСЬ набір одразу. Брати зброю з
-//     однієї фабрики, а броню з іншої код видачі просто не буде, бо працює
-//     з однією фабрикою за раз.
+//Ролі в шаблоні:
+//Weapon/Armor/Mount          — AbstractProduct (типи предметів)
+//ElvenBow, DwarvenAxe ...    — ConcreteProduct (конкретні предмети)
+//IFactionEquipmentFactory    — AbstractFactory (інтерфейс: 3 методи Create...)
+//ElfEquipmentFactory ...     — ConcreteFactory (по одній на фракцію)
+//EquipmentIssuer             — Client (код видачі; знає ЛИШЕ абстракції)
 //
-//  ШПОРА (ролі в шаблоні):
-//   Weapon/Armor/Mount          — AbstractProduct (типи предметів)
-//   ElvenBow, DwarvenAxe ...    — ConcreteProduct (конкретні предмети)
-//   IFactionEquipmentFactory    — AbstractFactory (інтерфейс: 3 методи Create...)
-//   ElfEquipmentFactory ...     — ConcreteFactory (по одній на фракцію)
-//   EquipmentIssuer             — Client (код видачі; знає ЛИШЕ абстракції)
-//
-//  ШПОРА (приклад із гри):
-//   Фабрика ельфів видає: Ельфійський лук + Ельфійську кольчугу + Лісового
-//   оленя. Фабрика гномів: Сокиру + Панцир + Цапа. Помішати неможливо.
-// ---------------------------------------------------------------------
+//приклад із гри:
+//Фабрика ельфів видає: Ельфійський лук + Ельфійську кольчугу + Лісового оленя.
+//Фабрика гномів: Сокиру + Панцир + Цапа. Помішати неможливо.
 
-// ----- Abstract Products -----
+
+// Abstract Products
 public abstract class EquipmentItem
 {
     public string Faction { get; }   // до якої фракції належить предмет
@@ -71,22 +62,22 @@ public abstract class Mount : EquipmentItem
     protected Mount(string faction, string name) : base(faction, name) { }
 }
 
-// ----- Concrete Products: ЕЛЬФИ -----
+// Concrete Products: ЕЛЬФИ 
 public class ElvenBow : Weapon     { public ElvenBow()     : base("Ельфи", "Ельфійський лук") { } }
 public class ElvenArmor : Armor    { public ElvenArmor()   : base("Ельфи", "Ельфійська кольчуга") { } }
 public class Stag : Mount          { public Stag()         : base("Ельфи", "Лісовий олень") { } }
 
-// ----- Concrete Products: ГНОМИ -----
+//  Concrete Products: ГНОМИ 
 public class DwarvenAxe : Weapon   { public DwarvenAxe()   : base("Гноми", "Гномівська сокира") { } }
 public class DwarvenArmor : Armor  { public DwarvenArmor() : base("Гноми", "Гномівський панцир") { } }
 public class MountainGoat : Mount  { public MountainGoat() : base("Гноми", "Гірський цап") { } }
 
-// ----- Concrete Products: ЛЮДИ -----
+//Concrete Products: ЛЮДИ 
 public class HumanSword : Weapon   { public HumanSword()   : base("Люди", "Лицарський меч") { } }
 public class HumanArmor : Armor    { public HumanArmor()   : base("Люди", "Лицарські лати") { } }
 public class Horse : Mount         { public Horse()        : base("Люди", "Бойовий кінь") { } }
 
-// ----- Abstract Factory -----
+// Abstract Factory 
 public interface IFactionEquipmentFactory
 {
     string FactionName { get; }
@@ -95,7 +86,7 @@ public interface IFactionEquipmentFactory
     Mount CreateMount();
 }
 
-// ----- Concrete Factories -----
+// Concrete Factories 
 public class ElfEquipmentFactory : IFactionEquipmentFactory
 {
     public string FactionName => "Ельфи";
@@ -120,7 +111,7 @@ public class HumanEquipmentFactory : IFactionEquipmentFactory
     public Mount CreateMount() => new Horse();
 }
 
-// ----- Набір, який отримує персонаж -----
+//  Набір, який отримує персонаж 
 public class StarterKit
 {
     public Weapon Weapon { get; }
@@ -138,8 +129,8 @@ public class StarterKit
         $"зброя: {Weapon}, броня: {Armor}, їздова тварина: {Mount}";
 }
 
-// ----- Client: код видачі спорядження -----
-// ШПОРА: у цьому класі НЕМАЄ слів Elf/Dwarf/Human/Orc, жодного if за
+// Client: код видачі спорядження
+// У цьому класі НЕМАЄ слів Elf/Dwarf/Human/Orc, жодного if за
 // фракцією і жодного new конкретного предмета. Він працює лише з
 // абстракціями (IFactionEquipmentFactory, Weapon, Armor, Mount).
 // Тому нова фракція не потребує змін у цьому коді.
@@ -166,8 +157,8 @@ public class EquipmentIssuer
     }
 }
 
-// ----- ДОДАНО ПІЗНІШЕ: фракція ОРКІВ -----
-// ШПОРА: нова фракція = нові класи (3 предмети + 1 фабрика).
+//  ДОДАНО ПІЗНІШЕ: фракція ОРКІВ 
+//нова фракція = нові класи (3 предмети + 1 фабрика).
 // EquipmentIssuer і IFactionEquipmentFactory НЕ змінюються.
 public class OrcClub : Weapon      { public OrcClub()      : base("Орки", "Орківська булава") { } }
 public class OrcArmor : Armor      { public OrcArmor()     : base("Орки", "Орківські шкури") { } }
@@ -181,18 +172,17 @@ public class OrcEquipmentFactory : IFactionEquipmentFactory
     public Mount CreateMount() => new Warg();
 }
 
-//  РАННЕР (запуск): завдання 2
 public static class Program
 {
     public static void Main()
     {
-        Console.OutputEncoding = Encoding.UTF8;   // щоб кирилиця й «→» виводились коректно
+        Console.OutputEncoding = Encoding.UTF8;   
         Situation2_AbstractFactory();
     }
 
     private static void Situation2_AbstractFactory()
     {
-        Console.WriteLine("=== Завдання 2: стартове спорядження фракцій (Abstract Factory) ===");
+        Console.WriteLine("-Завдання 2: стартове спорядження фракцій (Abstract Factory)");
 
         var issuer = new EquipmentIssuer();   // ОДИН код видачі для всіх фракцій
 

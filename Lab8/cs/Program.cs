@@ -63,7 +63,7 @@ namespace Variant6_RestaurantBooking
 
         internal OrderLine(MenuItem item, int count) { _item = item; Count = count; } // створює лише агрегат
 
-        public string ItemName => _item.Name;                 // Закон Деметри: делегування
+        public string ItemName => _item.Name;                 
         public CourseType CourseType => _item.CourseType;
         public decimal Subtotal() => _item.Price * Count;     // Information Expert
     }

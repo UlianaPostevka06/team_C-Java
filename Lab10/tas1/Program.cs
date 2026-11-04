@@ -14,24 +14,17 @@ public static class Logger
     }
 }
 //  ЗАВДАННЯ 1. FACTORY METHOD — спавн монстрів на локаціях
+// «Процес однаковий для всіх, а ПРОДУКТ у кожного свій» -> Factory Method.
+// Було: switch за типом локації -> додавання пустелі ламало загальний код.
+// Стало: загальний процес Spawn() написаний ОДИН раз у базовому класі
+// Location, а «яку істоту створити» вирішує сама локація (метод
+// CreateMonster, який перевизначає кожна локація) 
 //
-//  ШПОРА (як розпізнати шаблон за описом):
-//   • «Процес однаковий для всіх, а ПРОДУКТ у кожного свій» -> Factory Method.
-//   • Було: switch за типом локації -> додавання пустелі ламало загальний код.
-//   • Стало: загальний процес Spawn() написаний ОДИН раз у базовому класі
-//     Location, а «яку істоту створити» вирішує сама локація (метод
-//     CreateMonster, який перевизначає кожна локація).
-//
-//  ШПОРА (ролі в шаблоні):
+// Ролі в шаблоні:
 //   Monster          — Product (абстрактний продукт)
 //   Wolf/Ghoul/...   — ConcreteProduct (конкретні продукти)
 //   Location         — Creator (містить процес Spawn + абстрактний factory method)
 //   Forest/Swamp/... — ConcreteCreator (кожен вирішує, якого монстра створити)
-//
-//  ШПОРА (чим відрізняється від Abstract Factory, питання на захисті):
-//   Factory Method створює ОДИН продукт (один монстр) і працює через
-//   успадкування (перевизначення методу). Abstract Factory створює
-//   ЦІЛУ РОДИНУ пов'язаних об'єктів (див. завдання 2).
 
 //Product
 public abstract class Monster
@@ -54,12 +47,12 @@ public abstract class Monster
         $"{Kind} (рівень {Level}, hp {Hp}, атака {Attack})";
 }
 
-// ----- Concrete Products -----
+// Concrete Products
 public class Wolf : Monster    { public Wolf()    : base("Вовк",  5, 120, 15) { } }
 public class Ghoul : Monster   { public Ghoul()   : base("Упир",  8, 200, 22) { } }
 public class Troll : Monster   { public Troll()   : base("Троль", 12, 450, 40) { } }
 
-// ----- Creator -----
+// Creator
 public abstract class Location
 {
     public string Name { get; }
@@ -125,8 +118,7 @@ public class MountainLocation : Location
     protected override Monster CreateMonster() => new Troll();
 }
 
-// ----- ДОДАНО ПІЗНІШЕ: пустеля -----
-// ШПОРА: щоб додати нову локацію, пишемо ЛИШЕ два нових класи
+// щоб додати нову локацію, пишемо ЛИШЕ два нових класи
 // (монстр + локація). Клас Location і метод Spawn() НЕ чіпаємо —
 // це і є вимога «розширення без змін загального коду» (принцип OCP).
 public class Scorpion : Monster { public Scorpion() : base("Скорпіон", 7, 150, 28) { } }
@@ -137,18 +129,18 @@ public class DesertLocation : Location
     protected override Monster CreateMonster() => new Scorpion();
 }
 
-//  РАННЕР (запуск): завдання 1
+
 public static class Program
 {
     public static void Main()
     {
-        Console.OutputEncoding = Encoding.UTF8;   // щоб кирилиця й «→» виводились коректно
+        Console.OutputEncoding = Encoding.UTF8;   
         Situation1_FactoryMethod();
     }
 
     private static void Situation1_FactoryMethod()
     {
-        Console.WriteLine("=== Завдання 1: спавн монстрів на локаціях (Factory Method) ===");
+        Console.WriteLine("Завдання 1: спавн монстрів на локаціях (Factory Method)");
 
         // Список базового типу Location: процес спавну однаковий для всіх
         var locations = new List<Location>
@@ -177,7 +169,7 @@ public static class Program
         desert.Spawn();
 
         // Підсумок: що в світі
-        Logger.Log("Server", "=== Склад світу ===");
+        Logger.Log("Server", "-Склад світу");
         foreach (Location location in locations)
             Logger.Log("Server", $"{location.Name}: {string.Join("; ", location.Monsters)}");
     }

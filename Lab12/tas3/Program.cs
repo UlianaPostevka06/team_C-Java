@@ -17,7 +17,6 @@ namespace Lab12.Task3;
 //   Program                    — Client (викликає ті самі методи для будь-якого вузла)
 
 // Журнал: усі події у форматі [час] [джерело] подія
-// ---------------------------------------------------------------------
 public static class Logger
 {
     public static void Log(string source, string message)

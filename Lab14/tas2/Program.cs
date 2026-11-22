@@ -21,12 +21,11 @@ static class Logger
     }
 }
 
-
 // Класи домену (мінімум, без якого ситуацію не змоделювати)
-/// <summary>Предмет інвентаря. record -> порівняння за назвою.</summary>
+///Предмет інвентаря. record -> порівняння за назвою.
 record Item(string Name);
 
-/// <summary>Пропозиція гравця в обміні: набір предметів + золото.</summary>
+///Пропозиція гравця в обміні: набір предметів + золото.
 class Offer
 {
     public IReadOnlyList<Item> Items { get; }
@@ -48,7 +47,7 @@ class Offer
     }
 }
 
-/// <summary>Знімок стану інвентаря — потрібен для відкату (атомарність обміну).</summary>
+///Знімок стану інвентаря — потрібен для відкату (атомарність обміну)
 record InventoryState(List<Item> Items, int Gold);
 
 class Inventory
@@ -84,7 +83,7 @@ class Inventory
         Gold += offer.Gold;
     }
 
-    // ШПОРА: Snapshot/Restore — для відкату, якщо обмін зламався посередині
+    // Snapshot/Restore — для відкату, якщо обмін зламався посередині
     public InventoryState Snapshot() => new(new List<Item>(_items), Gold);
 
     public void Restore(InventoryState state)
@@ -101,7 +100,7 @@ class Inventory
     }
 }
 
-/// <summary>Журнал транзакцій. Пише в нього тільки посередник.</summary>
+///Журнал транзакцій. Пише в нього тільки посередник.
 class TransactionLog
 {
     private readonly List<string> _entries = new();
